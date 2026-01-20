@@ -75,13 +75,13 @@ class GFBCU_Coupons_List_Table extends WP_List_Table {
 		$name = empty( $item['name'] ) ? '—' : esc_html( $item['name'] );
 		$actions = array();
 
-		if ( current_user_can( 'manage_options' ) && ! empty( $item['form_id'] ) ) {
+		$feed_id = isset( $item['feed_id'] ) ? (int) $item['feed_id'] : ( isset( $item['id'] ) ? (int) $item['id'] : 0 );
+		if ( current_user_can( 'manage_options' ) && ! empty( $item['form_id'] ) && $feed_id > 0 ) {
 			$edit_url = add_query_arg(
 				array(
-					'page'    => 'gf_edit_forms',
-					'view'    => 'settings',
-					'subview' => 'coupons',
-					'id'      => (int) $item['form_id'],
+					'page' => 'gravityformscoupons',
+					'id'   => (int) $item['form_id'],
+					'fid'  => $feed_id,
 				),
 				admin_url( 'admin.php' )
 			);
