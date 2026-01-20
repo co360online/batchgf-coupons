@@ -129,8 +129,12 @@ class GFBCU_Coupons_List_Table extends WP_List_Table {
 
 	public function prepare_items() {
 		$this->process_bulk_action();
-		$per_page = 20;
-		$current_page = $this->get_pagenum();
+		$per_page = (int) $this->get_items_per_page( 'gfbcu_coupons_per_page', 20 );
+		if ( $per_page < 1 ) {
+			$per_page = 20;
+		}
+		$current_page = max( 1, (int) $this->get_pagenum() );
+		$offset = ( $current_page - 1 ) * $per_page;
 
 		$filters = $this->get_filters();
 
@@ -138,29 +142,18 @@ class GFBCU_Coupons_List_Table extends WP_List_Table {
 			array(
 				'form_id'  => $filters['form_id'],
 				'search'   => $filters['search'],
-				'per_page' => $per_page,
-				'paged'    => $current_page,
 				'status'   => $filters['status'],
 			)
 		);
 
-		$items = $result['items'];
+		$all_items = $result['items'];
 		$total = $result['total'];
 		$max_pages = max( 1, (int) ceil( $total / $per_page ) );
 		if ( $current_page > $max_pages ) {
 			$current_page = 1;
-			$result = $this->generator->query_coupons(
-				array(
-					'form_id'  => $filters['form_id'],
-					'search'   => $filters['search'],
-					'per_page' => $per_page,
-					'paged'    => $current_page,
-					'status'   => $filters['status'],
-				)
-			);
-			$items = $result['items'];
-			$total = $result['total'];
+			$offset = 0;
 		}
+		$items = array_slice( $all_items, $offset, $per_page );
 
 		$codes = wp_list_pluck( $items, 'code' );
 		$campaign_map = $this->generator->get_campaign_map( $codes, $filters['form_id'] );
@@ -175,8 +168,22 @@ class GFBCU_Coupons_List_Table extends WP_List_Table {
 			array(
 				'total_items' => $total,
 				'per_page'    => $per_page,
+				'total_pages' => $max_pages,
 			)
 		);
+
+		if ( $total > 0 && 1 === $current_page && 0 === count( $this->items ) ) {
+			$first_id = isset( $all_items[0]['id'] ) ? $all_items[0]['id'] : 'n/a';
+			error_log(
+				sprintf(
+					'[GF Bulk Coupons] Empty list debug: per_page=%d current_page=%d offset=%d first_id=%s',
+					$per_page,
+					$current_page,
+					$offset,
+					$first_id
+				)
+			);
+		}
 	}
 
 	public function get_filters() {
