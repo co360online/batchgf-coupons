@@ -34,8 +34,8 @@ class GFBCU_Coupons_List_Table extends WP_List_Table {
 			'usage_limit'=> __( 'Límite', GFBCU_TEXT_DOMAIN ),
 			'uses'       => __( 'Usos', GFBCU_TEXT_DOMAIN ),
 			'stackable'  => __( 'Combinable', GFBCU_TEXT_DOMAIN ),
+			'dates'      => __( 'Vigencia', GFBCU_TEXT_DOMAIN ),
 			'status'     => __( 'Estado', GFBCU_TEXT_DOMAIN ),
-			'expiration' => __( 'Expiración', GFBCU_TEXT_DOMAIN ),
 			'created_at' => __( 'Creación', GFBCU_TEXT_DOMAIN ),
 			'campaign'   => __( 'Etiqueta', GFBCU_TEXT_DOMAIN ),
 		);
@@ -77,6 +77,9 @@ class GFBCU_Coupons_List_Table extends WP_List_Table {
 
 	public function column_form( $item ) {
 		$title = $this->generator->get_form_title( $item['form_id'] );
+		if ( ! $title ) {
+			return esc_html__( 'Form inválido', GFBCU_TEXT_DOMAIN );
+		}
 		return esc_html( $item['form_id'] . ' - ' . $title );
 	}
 
@@ -110,8 +113,10 @@ class GFBCU_Coupons_List_Table extends WP_List_Table {
 		return ( isset( $item['is_stackable'] ) && '1' === $item['is_stackable'] ) ? esc_html__( 'Sí', GFBCU_TEXT_DOMAIN ) : esc_html__( 'No', GFBCU_TEXT_DOMAIN );
 	}
 
-	public function column_expiration( $item ) {
-		return empty( $item['expiration'] ) ? '—' : esc_html( $item['expiration'] );
+	public function column_dates( $item ) {
+		$start = empty( $item['start_date'] ) ? '—' : $item['start_date'];
+		$end = empty( $item['expiration'] ) ? __( 'Never Expires', GFBCU_TEXT_DOMAIN ) : $item['expiration'];
+		return esc_html( $start . ' → ' . $end );
 	}
 
 	public function column_created_at( $item ) {

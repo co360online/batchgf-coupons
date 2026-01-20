@@ -72,7 +72,7 @@ class GFBCU_Export {
 		$output = fopen( 'php://output', 'w' );
 		fwrite( $output, "\xEF\xBB\xBF" );
 
-		fputcsv( $output, array( 'code', 'form_id', 'form_title', 'type', 'amount', 'usage_limit', 'expiration', 'created_at', 'campaign', 'uses' ) );
+		fputcsv( $output, array( 'coupon_name', 'coupon_code', 'form_id', 'form_title', 'amount_type', 'amount', 'usage_limit', 'usage_count', 'start_date', 'end_date', 'is_stackable', 'created_at', 'campaign' ) );
 
 		$campaign_map = $generator->get_campaign_map( $codes, $form_id );
 		$items = isset( $data['items'] ) ? $data['items'] : array();
@@ -87,16 +87,19 @@ class GFBCU_Export {
 			fputcsv(
 				$output,
 				array(
+					isset( $item['name'] ) ? $item['name'] : '',
 					$code,
 					$form_id,
 					$form_title,
 					isset( $item['type'] ) ? $item['type'] : '',
 					isset( $item['amount'] ) ? $item['amount'] : '',
 					isset( $item['usage_limit'] ) ? $item['usage_limit'] : '',
+					is_null( $uses ) ? '' : $uses,
+					isset( $item['start_date'] ) ? $item['start_date'] : '',
 					isset( $item['expiration'] ) ? $item['expiration'] : '',
+					isset( $item['is_stackable'] ) ? $item['is_stackable'] : '',
 					isset( $item['created_at'] ) ? $item['created_at'] : '',
 					isset( $campaign_map[ $code ] ) ? $campaign_map[ $code ] : '',
-					is_null( $uses ) ? '' : $uses,
 				)
 			);
 		}

@@ -50,9 +50,19 @@ class GFBCU_Bulk_Generator {
 	}
 
 	public function get_addon_slug() {
-		if ( null === $this->addon_slug ) {
-			$this->addon_slug = 'gravityformscoupons';
+		if ( null !== $this->addon_slug ) {
+			return $this->addon_slug;
 		}
+
+		$slug = 'gravityformscoupons';
+		if ( function_exists( 'gf_coupons' ) ) {
+			$addon = gf_coupons();
+			if ( $addon && method_exists( $addon, 'get_slug' ) ) {
+				$slug = $addon->get_slug();
+			}
+		}
+
+		$this->addon_slug = $slug;
 		return $this->addon_slug;
 	}
 
@@ -305,47 +315,41 @@ class GFBCU_Bulk_Generator {
 	}
 
 	public function query_coupons( $args ) {
-		global $wpdb;
-		$table = $this->get_feed_table();
-		$slug  = $this->get_addon_slug();
 		$status = isset( $args['status'] ) ? sanitize_key( $args['status'] ) : '';
-
-		$where = array( 'addon_slug = %s' );
-		$params = array( $slug );
-
-		if ( ! empty( $args['form_id'] ) ) {
-			$where[] = 'form_id = %d';
-			$params[] = (int) $args['form_id'];
-		}
-
-		$where_sql = 'WHERE ' . implode( ' AND ', $where );
-		$query = "SELECT id, form_id, is_active, meta, date_created FROM {$table} {$where_sql} ORDER BY id DESC";
-		$query = $wpdb->prepare( $query, $params );
-		$rows = $wpdb->get_results( $query, ARRAY_A );
-
 		$items = array();
-		foreach ( $rows as $row ) {
-			$meta = json_decode( $row['meta'], true );
-			if ( empty( $meta['couponCode'] ) ) {
-				continue;
+		$slug  = $this->get_addon_slug();
+
+		if ( class_exists( 'GFAPI' ) ) {
+			$form_id = ! empty( $args['form_id'] ) ? (int) $args['form_id'] : null;
+			$feeds = GFAPI::get_feeds( $form_id, $slug );
+			foreach ( (array) $feeds as $feed ) {
+				$items[] = $this->parse_feed_to_item( $feed );
+			}
+		} else {
+			global $wpdb;
+			$table = $this->get_feed_table();
+
+			$where = array( 'addon_slug = %s' );
+			$params = array( $slug );
+
+			if ( ! empty( $args['form_id'] ) ) {
+				$where[] = 'form_id = %d';
+				$params[] = (int) $args['form_id'];
 			}
 
-			$item = array(
-				'id'          => (int) $row['id'],
-				'form_id'     => (int) $row['form_id'],
-				'is_active'   => (int) $row['is_active'],
-				'name'        => isset( $meta['couponName'] ) ? $meta['couponName'] : '',
-				'code'        => $meta['couponCode'],
-				'type'        => isset( $meta['couponAmountType'] ) ? $meta['couponAmountType'] : '',
-				'amount'      => isset( $meta['couponAmount'] ) ? $meta['couponAmount'] : '',
-				'usage_limit' => isset( $meta['usageLimit'] ) ? $meta['usageLimit'] : '',
-				'usage_count' => isset( $meta['usageCount'] ) && '' !== $meta['usageCount'] ? (int) $meta['usageCount'] : null,
-				'is_stackable'=> isset( $meta['isStackable'] ) ? $meta['isStackable'] : '0',
-				'expiration'  => isset( $meta['endDate'] ) ? $meta['endDate'] : '',
-				'created_at'  => $row['date_created'],
-			);
+			$where_sql = 'WHERE ' . implode( ' AND ', $where );
+			$query = "SELECT id, form_id, is_active, meta FROM {$table} {$where_sql} ORDER BY id DESC";
+			$query = $wpdb->prepare( $query, $params );
+			$rows = $wpdb->get_results( $query, ARRAY_A );
+			foreach ( $rows as $row ) {
+				$items[] = $this->parse_feed_to_item( $row );
+			}
+		}
 
-			if ( ! empty( $args['search'] ) && false === stripos( $item['code'], $args['search'] ) ) {
+		$filtered = array();
+		foreach ( $items as $item ) {
+			$searchable = trim( (string) $item['code'] . ' ' . (string) $item['name'] );
+			if ( ! empty( $args['search'] ) && false === stripos( $searchable, $args['search'] ) ) {
 				continue;
 			}
 
@@ -353,17 +357,17 @@ class GFBCU_Bulk_Generator {
 				continue;
 			}
 
-			$items[] = $item;
+			$filtered[] = $item;
 		}
 
-		$total = count( $items );
+		$total = count( $filtered );
 
 		if ( ! empty( $args['per_page'] ) ) {
 			$offset = ( max( 1, (int) $args['paged'] ) - 1 ) * (int) $args['per_page'];
-			$items = array_slice( $items, $offset, (int) $args['per_page'] );
+			$filtered = array_slice( $filtered, $offset, (int) $args['per_page'] );
 		}
 
-		return array( 'items' => $items, 'total' => $total );
+		return array( 'items' => $filtered, 'total' => $total );
 	}
 
 	public function get_usage_count( $form_id, $code, $force = false ) {
@@ -417,7 +421,7 @@ class GFBCU_Bulk_Generator {
 
 	public function get_coupon_status( $item ) {
 		$expiration = isset( $item['expiration'] ) ? $item['expiration'] : '';
-		$usage_limit = isset( $item['usage_limit'] ) ? (int) $item['usage_limit'] : 0;
+		$usage_limit = isset( $item['usage_limit'] ) && '' !== $item['usage_limit'] ? (int) $item['usage_limit'] : 0;
 		$usage_count = isset( $item['usage_count'] ) ? (int) $item['usage_count'] : null;
 
 		if ( $expiration ) {
@@ -440,7 +444,7 @@ class GFBCU_Bulk_Generator {
 
 	private function matches_status( $status, $item ) {
 		$expiration = isset( $item['expiration'] ) ? $item['expiration'] : '';
-		$usage_limit = isset( $item['usage_limit'] ) ? (int) $item['usage_limit'] : 0;
+		$usage_limit = isset( $item['usage_limit'] ) && '' !== $item['usage_limit'] ? (int) $item['usage_limit'] : 0;
 		$usage_count = isset( $item['usage_count'] ) ? (int) $item['usage_count'] : null;
 
 		if ( 'expired' === $status ) {
@@ -484,5 +488,38 @@ class GFBCU_Bulk_Generator {
 		}
 
 		return $formatted . ' €';
+	}
+
+	private function parse_feed_to_item( $feed ) {
+		$meta = array();
+		if ( isset( $feed['meta'] ) ) {
+			$meta = is_array( $feed['meta'] ) ? $feed['meta'] : json_decode( $feed['meta'], true );
+		}
+
+		$meta = is_array( $meta ) ? $meta : array();
+		$code = isset( $meta['couponCode'] ) ? $meta['couponCode'] : '';
+		$name = isset( $meta['couponName'] ) ? $meta['couponName'] : '';
+
+		if ( ! $name && ! $code ) {
+			$name = __( 'Meta incompleto', GFBCU_TEXT_DOMAIN );
+		}
+
+		$form_id = isset( $feed['form_id'] ) ? (int) $feed['form_id'] : 0;
+
+		return array(
+			'id'           => isset( $feed['id'] ) ? (int) $feed['id'] : 0,
+			'form_id'      => $form_id,
+			'is_active'    => isset( $feed['is_active'] ) ? (int) $feed['is_active'] : 0,
+			'name'         => $name,
+			'code'         => $code ? $code : '—',
+			'type'         => isset( $meta['couponAmountType'] ) ? $meta['couponAmountType'] : '—',
+			'amount'       => isset( $meta['couponAmount'] ) ? $meta['couponAmount'] : '—',
+			'usage_limit'  => isset( $meta['usageLimit'] ) ? $meta['usageLimit'] : '',
+			'usage_count'  => isset( $meta['usageCount'] ) && '' !== $meta['usageCount'] ? (int) $meta['usageCount'] : 0,
+			'is_stackable' => isset( $meta['isStackable'] ) ? $meta['isStackable'] : '0',
+			'start_date'   => isset( $meta['startDate'] ) ? $meta['startDate'] : '',
+			'expiration'   => isset( $meta['endDate'] ) ? $meta['endDate'] : '',
+			'created_at'   => isset( $feed['date_created'] ) ? $feed['date_created'] : '',
+		);
 	}
 }
