@@ -46,13 +46,13 @@ class GFBCU_Coupons_List_Table extends WP_List_Table {
 	}
 
 	public function column_cb( $item ) {
-		return sprintf( '<input type="checkbox" name="coupon_codes[]" value="%s" />', esc_attr( $item['code'] ) );
+		return sprintf( '<input type="checkbox" name="coupon_ids[]" value="%d" />', (int) $item['id'] );
 	}
 
 	public function column_code( $item ) {
 		$actions = array();
 
-		if ( ! $this->generator->get_usage_count_column() ) {
+		if ( null === $item['usage_count'] ) {
 			$nonce = wp_create_nonce( 'gfbcu_calculate_uses_' . $item['code'] . '_' . $item['form_id'] );
 			$url = add_query_arg(
 				array(
@@ -212,26 +212,25 @@ class GFBCU_Coupons_List_Table extends WP_List_Table {
 			return;
 		}
 
-		if ( empty( $_POST['coupon_codes'] ) ) {
+		if ( empty( $_POST['coupon_ids'] ) ) {
 			return;
 		}
 
 		check_admin_referer( 'bulk-' . $this->_args['plural'] );
 
-		$codes = array_map( 'sanitize_text_field', wp_unslash( $_POST['coupon_codes'] ) );
-		$this->delete_coupons( $codes );
+		$ids = array_map( 'absint', wp_unslash( $_POST['coupon_ids'] ) );
+		$this->delete_coupons( $ids );
 	}
 
-	private function delete_coupons( array $codes ) {
+	private function delete_coupons( array $ids ) {
 		global $wpdb;
-		$table = $this->generator->get_coupon_table();
-		$code_column = $this->generator->get_code_column();
-		if ( ! $table || ! $code_column ) {
+		$table = $this->generator->get_feed_table();
+		if ( ! $table ) {
 			return;
 		}
 
-		$placeholders = implode( ',', array_fill( 0, count( $codes ), '%s' ) );
-		$query = $wpdb->prepare( "DELETE FROM {$table} WHERE {$code_column} IN ({$placeholders})", $codes );
+		$placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+		$query = $wpdb->prepare( "DELETE FROM {$table} WHERE id IN ({$placeholders})", $ids );
 		$wpdb->query( $query );
 	}
 }

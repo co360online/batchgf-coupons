@@ -151,10 +151,10 @@ Ahora genera el código del plugin.
 5. Exporta el CSV al final de la generación o desde **GF Bulk Coupons > Cupones**.
 
 ## Dónde se guardan los cupones
-El plugin utiliza la tabla de cupones del Add-On oficial de Gravity Forms Coupons. La tabla se detecta dinámicamente (por ejemplo `rg_gf_coupon` o similar). Para la etiqueta/campaña se crea una tabla auxiliar `{$wpdb->prefix}gfbcu_coupon_meta` con el mapeo código → campaña.
+El plugin usa los **feeds** del Add-On oficial de Gravity Forms Coupons en la tabla `{$wpdb->prefix}gf_addon_feed` con `addon_slug` del Coupons Add-On. Para la etiqueta/campaña se crea una tabla auxiliar `{$wpdb->prefix}gfbcu_coupon_meta` con el mapeo código → campaña.
 
 ## Cómo se calcula el “uso” de cupones
-Si la tabla del Add-On trae una columna de conteo (`usage_count` o similar), se muestra directamente. Si no existe, se calcula bajo demanda consultando las entradas del formulario y buscando valores en campos tipo **Coupon**. El resultado se cachea en transients por 10 minutos para evitar impacto en rendimiento.
+Si el meta JSON del feed incluye un conteo (`usageCount` o similar), se muestra directamente. Si no existe, se calcula bajo demanda consultando las entradas del formulario y buscando valores en campos tipo **Coupon**. El resultado se cachea en transients por 10 minutos para evitar impacto en rendimiento.
 
 ## Compatibilidad y rendimiento
 - Compatible con PHP 7.4+ y WordPress moderno.

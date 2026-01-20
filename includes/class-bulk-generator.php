@@ -7,9 +7,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 class GFBCU_Bulk_Generator {
 	private static $instance;
 
-	private $coupon_table;
-	private $coupon_columns;
 	private $meta_table;
+	private $addon_slug;
 
 	public static function get_instance() {
 		if ( null === self::$instance ) {
@@ -45,171 +44,54 @@ class GFBCU_Bulk_Generator {
 		dbDelta( $sql );
 	}
 
-	public function get_coupon_table() {
-		if ( null !== $this->coupon_table ) {
-			return $this->coupon_table;
-		}
-
+	public function get_feed_table() {
 		global $wpdb;
-		$table_candidates = array();
-
-		if ( class_exists( 'GFFormsModel' ) && method_exists( 'GFFormsModel', 'get_table_name' ) ) {
-			$possible = array( 'coupon', 'coupons' );
-			foreach ( $possible as $name ) {
-				$table = GFFormsModel::get_table_name( $name );
-				if ( $table ) {
-					$table_candidates[] = $table;
-				}
-			}
-		}
-
-		$like = $wpdb->esc_like( $wpdb->prefix . 'rg_gf_' ) . '%coupon%';
-		$results = $wpdb->get_col( $wpdb->prepare( 'SHOW TABLES LIKE %s', $like ) );
-		foreach ( $results as $table ) {
-			$table_candidates[] = $table;
-		}
-
-		$table_candidates = array_unique( array_filter( $table_candidates ) );
-
-		foreach ( $table_candidates as $table ) {
-			if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) ) {
-				$this->coupon_table = $table;
-				return $this->coupon_table;
-			}
-		}
-
-		$this->coupon_table = '';
-		return $this->coupon_table;
+		return $wpdb->prefix . 'gf_addon_feed';
 	}
 
-	public function get_coupon_columns() {
-		if ( null !== $this->coupon_columns ) {
-			return $this->coupon_columns;
+	public function get_addon_slug() {
+		if ( null !== $this->addon_slug ) {
+			return $this->addon_slug;
 		}
 
-		$table = $this->get_coupon_table();
-		if ( ! $table ) {
-			$this->coupon_columns = array();
-			return $this->coupon_columns;
+		$slug = 'gravityformscoupons';
+		if ( function_exists( 'gf_coupons' ) ) {
+			$addon = gf_coupons();
+			if ( $addon && method_exists( $addon, 'get_slug' ) ) {
+				$slug = $addon->get_slug();
+			}
 		}
 
-		global $wpdb;
-		$columns = $wpdb->get_results( "SHOW COLUMNS FROM {$table}", ARRAY_A );
-		$names   = array();
-		foreach ( $columns as $column ) {
-			$names[] = $column['Field'];
+		$this->addon_slug = $slug;
+		return $this->addon_slug;
+	}
+
+	public function supports_stackable() {
+		if ( ! function_exists( 'gf_coupons' ) ) {
+			return false;
 		}
 
-		$this->coupon_columns = $names;
-		return $this->coupon_columns;
+		$addon = gf_coupons();
+		if ( ! $addon || ! method_exists( $addon, 'get_feed_fields' ) ) {
+			return false;
+		}
+
+		$fields = $addon->get_feed_fields();
+		foreach ( $fields as $field ) {
+			if ( isset( $field['name'] ) && 'stackable' === $field['name'] ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	public function get_meta_table() {
 		return $this->meta_table;
 	}
 
-	public function get_code_column() {
-		$columns = $this->get_coupon_columns();
-		$choices = array( 'code', 'coupon_code' );
-		foreach ( $choices as $choice ) {
-			if ( in_array( $choice, $columns, true ) ) {
-				return $choice;
-			}
-		}
-
-		return '';
-	}
-
-	public function get_form_id_column() {
-		$columns = $this->get_coupon_columns();
-		$choices = array( 'form_id', 'formId' );
-		foreach ( $choices as $choice ) {
-			if ( in_array( $choice, $columns, true ) ) {
-				return $choice;
-			}
-		}
-
-		return '';
-	}
-
-	public function get_usage_count_column() {
-		$columns = $this->get_coupon_columns();
-		$choices = array( 'usage_count', 'usage', 'uses' );
-		foreach ( $choices as $choice ) {
-			if ( in_array( $choice, $columns, true ) ) {
-				return $choice;
-			}
-		}
-
-		return '';
-	}
-
-	public function get_usage_limit_column() {
-		$columns = $this->get_coupon_columns();
-		$choices = array( 'usage_limit', 'usageLimit' );
-		foreach ( $choices as $choice ) {
-			if ( in_array( $choice, $columns, true ) ) {
-				return $choice;
-			}
-		}
-
-		return '';
-	}
-
-	public function get_expiration_column() {
-		$columns = $this->get_coupon_columns();
-		$choices = array( 'expiration', 'expiration_date', 'date_expires' );
-		foreach ( $choices as $choice ) {
-			if ( in_array( $choice, $columns, true ) ) {
-				return $choice;
-			}
-		}
-
-		return '';
-	}
-
-	public function get_created_column() {
-		$columns = $this->get_coupon_columns();
-		$choices = array( 'date_created', 'created_at', 'date_created_gmt' );
-		foreach ( $choices as $choice ) {
-			if ( in_array( $choice, $columns, true ) ) {
-				return $choice;
-			}
-		}
-
-		return '';
-	}
-
-	public function get_stackable_column() {
-		$columns = $this->get_coupon_columns();
-		$choices = array( 'stackable', 'is_stackable', 'allow_stack' );
-		foreach ( $choices as $choice ) {
-			if ( in_array( $choice, $columns, true ) ) {
-				return $choice;
-			}
-		}
-
-		return '';
-	}
-
-	public function get_active_column() {
-		$columns = $this->get_coupon_columns();
-		$choices = array( 'is_active', 'active' );
-		foreach ( $choices as $choice ) {
-			if ( in_array( $choice, $columns, true ) ) {
-				return $choice;
-			}
-		}
-
-		return '';
-	}
-
 	public function get_coupon_table_ready() {
-		$table = $this->get_coupon_table();
-		$code  = $this->get_code_column();
-		$form  = $this->get_form_id_column();
-
-		return $table && $code && $form;
+		return true;
 	}
 
 	public function get_forms() {
@@ -235,8 +117,8 @@ class GFBCU_Bulk_Generator {
 	}
 
 	public function generate_coupons( $args ) {
-		if ( ! $this->get_coupon_table_ready() ) {
-			return new WP_Error( 'gfbcu_missing_table', __( 'No se pudo detectar la tabla de cupones de Gravity Forms.', GFBCU_TEXT_DOMAIN ) );
+		if ( ! $this->get_addon_slug() ) {
+			return new WP_Error( 'gfbcu_missing_slug', __( 'No se pudo detectar el slug del Add-On de cupones.', GFBCU_TEXT_DOMAIN ) );
 		}
 
 		$defaults = array(
@@ -310,78 +192,67 @@ class GFBCU_Bulk_Generator {
 
 	public function get_existing_codes( $form_id ) {
 		global $wpdb;
-		$table   = $this->get_coupon_table();
-		$code    = $this->get_code_column();
-		$form    = $this->get_form_id_column();
-
-		if ( ! $table || ! $code || ! $form ) {
-			return array();
-		}
+		$table = $this->get_feed_table();
+		$slug = $this->get_addon_slug();
 
 		$results = $wpdb->get_col(
 			$wpdb->prepare(
-				"SELECT {$code} FROM {$table} WHERE {$form} = %d",
+				"SELECT meta FROM {$table} WHERE addon_slug = %s AND form_id = %d",
+				$slug,
 				$form_id
 			)
 		);
 
 		$existing = array();
-		foreach ( $results as $value ) {
-			$existing[ strtoupper( $value ) ] = true;
+		foreach ( $results as $meta_json ) {
+			$meta = json_decode( $meta_json, true );
+			if ( empty( $meta['couponCode'] ) ) {
+				continue;
+			}
+			$existing[ strtoupper( $meta['couponCode'] ) ] = true;
 		}
 
 		return $existing;
 	}
 
 	public function insert_coupon( $code, $args ) {
-		global $wpdb;
-
-		$table = $this->get_coupon_table();
-		$columns = $this->get_coupon_columns();
-
-		if ( ! $table ) {
-			return new WP_Error( 'gfbcu_missing_table', __( 'No se detectó tabla de cupones.', GFBCU_TEXT_DOMAIN ) );
-		}
-
-		$data   = array();
-		$format = array();
-
-		$map = array(
-			'form_id'        => (int) $args['form_id'],
-			'code'           => $code,
-			'coupon_code'    => $code,
-			'name'           => $code,
-			'type'           => $args['type'],
-			'amount'         => $args['amount'],
-			'usage_limit'    => $args['unlimited'] ? 0 : (int) $args['usage_limit'],
-			'usageLimit'     => $args['unlimited'] ? 0 : (int) $args['usage_limit'],
-			'expiration'     => $args['expiration'],
-			'expiration_date'=> $args['expiration'],
-			'date_expires'   => $args['expiration'],
-			'is_active'      => 1,
-			'active'         => 1,
-			'created_at'     => current_time( 'mysql' ),
-			'date_created'   => current_time( 'mysql' ),
-			'date_created_gmt' => get_gmt_from_date( current_time( 'mysql' ) ),
+		$meta = array(
+			'couponCode'   => $code,
+			'couponAmount' => $args['amount'],
+			'couponType'   => $args['type'],
+			'usageLimit'   => $args['unlimited'] ? 0 : (int) $args['usage_limit'],
+			'startDate'    => '',
+			'endDate'      => $args['expiration'],
+			'stackable'    => $args['is_stackable'] ? 1 : 0,
 		);
 
-		$stackable_column = $this->get_stackable_column();
-		if ( $stackable_column ) {
-			$map[ $stackable_column ] = $args['is_stackable'] ? 1 : 0;
-		}
-
-		foreach ( $map as $column => $value ) {
-			if ( in_array( $column, $columns, true ) ) {
-				$data[ $column ] = $value;
-				$format[] = is_numeric( $value ) && ! is_string( $value ) ? '%d' : '%s';
+		if ( function_exists( 'gf_coupons' ) ) {
+			$addon = gf_coupons();
+			if ( $addon && method_exists( $addon, 'insert_feed' ) ) {
+				$result = $addon->insert_feed( (int) $args['form_id'], true, $meta );
+				if ( is_wp_error( $result ) ) {
+					return $result;
+				}
+				return true;
 			}
 		}
 
-		if ( empty( $data ) ) {
-			return new WP_Error( 'gfbcu_missing_columns', __( 'No se pudieron mapear columnas de cupón.', GFBCU_TEXT_DOMAIN ) );
-		}
+		global $wpdb;
+		$table = $this->get_feed_table();
+		$slug  = $this->get_addon_slug();
 
-		$inserted = $wpdb->insert( $table, $data, $format );
+		$inserted = $wpdb->insert(
+			$table,
+			array(
+				'form_id'     => (int) $args['form_id'],
+				'is_active'   => 1,
+				'addon_slug'  => $slug,
+				'meta'        => wp_json_encode( $meta ),
+				'date_created'=> current_time( 'mysql', true ),
+			),
+			array( '%d', '%d', '%s', '%s', '%s' )
+		);
+
 		if ( false === $inserted ) {
 			return new WP_Error( 'gfbcu_insert_failed', __( 'Error al insertar cupón en la base de datos.', GFBCU_TEXT_DOMAIN ) );
 		}
@@ -440,114 +311,60 @@ class GFBCU_Bulk_Generator {
 
 	public function query_coupons( $args ) {
 		global $wpdb;
-		$table = $this->get_coupon_table();
-		if ( ! $table ) {
-			return array( 'items' => array(), 'total' => 0 );
-		}
-
-		$code_column = $this->get_code_column();
-		$form_column = $this->get_form_id_column();
-		$type_column = in_array( 'type', $this->get_coupon_columns(), true ) ? 'type' : '';
-		$amount_column = in_array( 'amount', $this->get_coupon_columns(), true ) ? 'amount' : '';
-		$usage_limit_column = $this->get_usage_limit_column();
-		$usage_count_column = $this->get_usage_count_column();
-		$expiration_column = $this->get_expiration_column();
-		$created_column = $this->get_created_column();
-		$active_column = $this->get_active_column();
+		$table = $this->get_feed_table();
+		$slug  = $this->get_addon_slug();
 		$status = isset( $args['status'] ) ? sanitize_key( $args['status'] ) : '';
 
-		$where = array();
-		$params = array();
+		$where = array( 'addon_slug = %s' );
+		$params = array( $slug );
 
 		if ( ! empty( $args['form_id'] ) ) {
-			$where[] = "{$form_column} = %d";
+			$where[] = 'form_id = %d';
 			$params[] = (int) $args['form_id'];
 		}
 
-		if ( ! empty( $args['search'] ) ) {
-			$where[] = "{$code_column} LIKE %s";
-			$params[] = '%' . $wpdb->esc_like( $args['search'] ) . '%';
-		}
+		$where_sql = 'WHERE ' . implode( ' AND ', $where );
+		$query = "SELECT id, form_id, is_active, meta, date_created FROM {$table} {$where_sql} ORDER BY id DESC";
+		$query = $wpdb->prepare( $query, $params );
+		$rows = $wpdb->get_results( $query, ARRAY_A );
 
-		if ( $status ) {
-			$now = current_time( 'mysql' );
-			if ( 'expired' === $status && $expiration_column ) {
-				$where[] = "{$expiration_column} < %s";
-				$params[] = $now;
+		$items = array();
+		foreach ( $rows as $row ) {
+			$meta = json_decode( $row['meta'], true );
+			if ( empty( $meta['couponCode'] ) ) {
+				continue;
 			}
 
-			if ( 'no_expiration' === $status && $expiration_column ) {
-				$where[] = "( {$expiration_column} IS NULL OR {$expiration_column} = '' )";
+			$item = array(
+				'id'          => (int) $row['id'],
+				'form_id'     => (int) $row['form_id'],
+				'is_active'   => (int) $row['is_active'],
+				'code'        => $meta['couponCode'],
+				'type'        => isset( $meta['couponType'] ) ? $meta['couponType'] : '',
+				'amount'      => isset( $meta['couponAmount'] ) ? $meta['couponAmount'] : '',
+				'usage_limit' => isset( $meta['usageLimit'] ) ? (int) $meta['usageLimit'] : 0,
+				'usage_count' => isset( $meta['usageCount'] ) ? (int) $meta['usageCount'] : null,
+				'expiration'  => isset( $meta['endDate'] ) ? $meta['endDate'] : '',
+				'created_at'  => $row['date_created'],
+			);
+
+			if ( ! empty( $args['search'] ) && false === stripos( $item['code'], $args['search'] ) ) {
+				continue;
 			}
 
-			if ( 'exhausted' === $status && $usage_limit_column && $usage_count_column ) {
-				$where[] = "{$usage_limit_column} > 0 AND {$usage_count_column} >= {$usage_limit_column}";
+			if ( $status && ! $this->matches_status( $status, $item ) ) {
+				continue;
 			}
 
-			if ( 'active' === $status ) {
-				$conditions = array();
-				if ( $expiration_column ) {
-					$conditions[] = "( {$expiration_column} = '' OR {$expiration_column} IS NULL OR {$expiration_column} >= %s )";
-					$params[] = $now;
-				}
-				if ( $usage_limit_column && $usage_count_column ) {
-					$conditions[] = "( {$usage_limit_column} = 0 OR {$usage_count_column} < {$usage_limit_column} )";
-				}
-				if ( $conditions ) {
-					$where[] = implode( ' AND ', $conditions );
-				}
-			}
+			$items[] = $item;
 		}
 
-		$where_sql = $where ? 'WHERE ' . implode( ' AND ', $where ) : '';
+		$total = count( $items );
 
-		$selects = array(
-			"{$code_column} AS code",
-			"{$form_column} AS form_id",
-		);
-
-		if ( $type_column ) {
-			$selects[] = "{$type_column} AS type";
-		}
-		if ( $amount_column ) {
-			$selects[] = "{$amount_column} AS amount";
-		}
-		if ( $usage_limit_column ) {
-			$selects[] = "{$usage_limit_column} AS usage_limit";
-		}
-		if ( $usage_count_column ) {
-			$selects[] = "{$usage_count_column} AS usage_count";
-		}
-		if ( $expiration_column ) {
-			$selects[] = "{$expiration_column} AS expiration";
-		}
-		if ( $created_column ) {
-			$selects[] = "{$created_column} AS created_at";
-		}
-		if ( $active_column ) {
-			$selects[] = "{$active_column} AS is_active";
-		}
-
-		$select_sql = implode( ',', $selects );
-
-		$limit = '';
 		if ( ! empty( $args['per_page'] ) ) {
 			$offset = ( max( 1, (int) $args['paged'] ) - 1 ) * (int) $args['per_page'];
-			$limit = $wpdb->prepare( ' LIMIT %d OFFSET %d', (int) $args['per_page'], $offset );
+			$items = array_slice( $items, $offset, (int) $args['per_page'] );
 		}
-
-		$query = "SELECT {$select_sql} FROM {$table} {$where_sql} ORDER BY {$code_column} ASC {$limit}";
-		if ( $params ) {
-			$query = $wpdb->prepare( $query, $params );
-		}
-
-		$items = $wpdb->get_results( $query, ARRAY_A );
-
-		$count_query = "SELECT COUNT(*) FROM {$table} {$where_sql}";
-		if ( $params ) {
-			$count_query = $wpdb->prepare( $count_query, $params );
-		}
-		$total = (int) $wpdb->get_var( $count_query );
 
 		return array( 'items' => $items, 'total' => $total );
 	}
@@ -622,5 +439,39 @@ class GFBCU_Bulk_Generator {
 		}
 
 		return __( 'Activo', GFBCU_TEXT_DOMAIN );
+	}
+
+	private function matches_status( $status, $item ) {
+		$expiration = isset( $item['expiration'] ) ? $item['expiration'] : '';
+		$usage_limit = isset( $item['usage_limit'] ) ? (int) $item['usage_limit'] : 0;
+		$usage_count = isset( $item['usage_count'] ) ? (int) $item['usage_count'] : null;
+
+		if ( 'expired' === $status ) {
+			if ( ! $expiration ) {
+				return false;
+			}
+			$timestamp = strtotime( $expiration );
+			return $timestamp && $timestamp < current_time( 'timestamp' );
+		}
+
+		if ( 'no_expiration' === $status ) {
+			return empty( $expiration );
+		}
+
+		if ( 'exhausted' === $status ) {
+			return $usage_limit > 0 && null !== $usage_count && $usage_count >= $usage_limit;
+		}
+
+		if ( 'active' === $status ) {
+			$expired = false;
+			if ( $expiration ) {
+				$timestamp = strtotime( $expiration );
+				$expired = $timestamp && $timestamp < current_time( 'timestamp' );
+			}
+			$exhausted = $usage_limit > 0 && null !== $usage_count && $usage_count >= $usage_limit;
+			return ! $expired && ! $exhausted;
+		}
+
+		return true;
 	}
 }

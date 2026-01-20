@@ -167,7 +167,7 @@ class GFBCU_Admin_Pages {
 							<label><input type="checkbox" name="no_expiration" value="1"> <?php esc_html_e( 'Sin expiración', GFBCU_TEXT_DOMAIN ); ?></label>
 						</td>
 					</tr>
-					<?php if ( $generator->get_stackable_column() ) : ?>
+					<?php if ( $generator->supports_stackable() ) : ?>
 						<tr>
 							<th scope="row"><label for="gfbcu-stackable"><?php esc_html_e( 'Combinable', GFBCU_TEXT_DOMAIN ); ?></label></th>
 							<td><label><input type="checkbox" name="is_stackable" id="gfbcu-stackable" value="1"> <?php esc_html_e( 'Permitir combinar cupones', GFBCU_TEXT_DOMAIN ); ?></label></td>
