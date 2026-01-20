@@ -62,6 +62,9 @@ jQuery(function ($) {
             return;
           }
 
+          if (response.data.notice) {
+            showNotice(response.data.notice, 'warning');
+          }
           token = response.data.token;
           offset = response.data.offset;
           allCodes = allCodes.concat(response.data.codes || []);

@@ -302,7 +302,12 @@ class GFBCU_Admin_Pages {
 		}
 
 		$token = $this->store_recent_generation( $codes, $args );
-		$redirect = add_query_arg( 'gfbcu_token', $token, gfbcu_admin_url( 'gfbcu-generate' ) );
+		$redirect_args = array( 'gfbcu_token' => $token );
+		if ( ! empty( $args['prefix_notice'] ) ) {
+			$redirect_args['gfbcu_notice'] = rawurlencode( $args['prefix_notice'] );
+			$redirect_args['gfbcu_type'] = 'warning';
+		}
+		$redirect = add_query_arg( $redirect_args, gfbcu_admin_url( 'gfbcu-generate' ) );
 		wp_safe_redirect( $redirect );
 		exit;
 	}
@@ -372,15 +377,19 @@ class GFBCU_Admin_Pages {
 			admin_url( 'admin-post.php' )
 		);
 
-		wp_send_json_success(
-			array(
-				'token'     => $token,
-				'codes'     => $codes,
-				'offset'    => $offset + $current_chunk,
-				'progress'  => $progress,
-				'exportUrl' => $export_url,
-			)
+		$response = array(
+			'token'     => $token,
+			'codes'     => $codes,
+			'offset'    => $offset + $current_chunk,
+			'progress'  => $progress,
+			'exportUrl' => $export_url,
 		);
+
+		if ( ! empty( $args['prefix_notice'] ) && 0 === $offset ) {
+			$response['notice'] = $args['prefix_notice'];
+		}
+
+		wp_send_json_success( $response );
 	}
 
 	private function sanitize_generation_args( $data ) {
@@ -434,13 +443,19 @@ class GFBCU_Admin_Pages {
 			$increment_start = 1;
 		}
 
+		$normalized_prefix = strtoupper( preg_replace( '/[^A-Z0-9]/', '', $prefix ) );
+		$prefix_notice = '';
+		if ( $prefix && $normalized_prefix !== strtoupper( $prefix ) ) {
+			$prefix_notice = __( 'El prefijo ha sido adaptado para cumplir las normas de Gravity Forms Coupons.', GFBCU_TEXT_DOMAIN );
+		}
+
 		return array(
 			'form_id'         => $form_id,
 			'type'            => $type,
 			'amount'          => $amount,
 			'count'           => $count,
 			'count_total'     => $count,
-			'prefix'          => $prefix,
+			'prefix'          => $normalized_prefix,
 			'length'          => $length,
 			'usage_limit'     => $usage_limit,
 			'unlimited'       => $unlimited,
@@ -449,6 +464,7 @@ class GFBCU_Admin_Pages {
 			'is_stackable'    => $is_stackable,
 			'mode'            => $mode,
 			'increment_start' => $increment_start,
+			'prefix_notice'   => $prefix_notice,
 		);
 	}
 

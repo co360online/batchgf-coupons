@@ -50,19 +50,9 @@ class GFBCU_Bulk_Generator {
 	}
 
 	public function get_addon_slug() {
-		if ( null !== $this->addon_slug ) {
-			return $this->addon_slug;
+		if ( null === $this->addon_slug ) {
+			$this->addon_slug = 'gravityformscoupons';
 		}
-
-		$slug = 'gravityformscoupons';
-		if ( function_exists( 'gf_coupons' ) ) {
-			$addon = gf_coupons();
-			if ( $addon && method_exists( $addon, 'get_slug' ) ) {
-				$slug = $addon->get_slug();
-			}
-		}
-
-		$this->addon_slug = $slug;
 		return $this->addon_slug;
 	}
 
@@ -172,13 +162,13 @@ class GFBCU_Bulk_Generator {
 	}
 
 	public function build_code( $args, $current_codes ) {
-		$prefix = strtoupper( $args['prefix'] );
+		$prefix = $args['prefix'];
 		$length = max( 1, (int) $args['length'] );
 
 		if ( 'incremental' === $args['mode'] ) {
 			$index = (int) $args['increment_start'] + count( $current_codes );
 			$random = str_pad( (string) $index, $length, '0', STR_PAD_LEFT );
-			return $prefix . $random;
+			return $this->sanitize_code( $prefix . $random );
 		}
 
 		$characters = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -187,7 +177,7 @@ class GFBCU_Bulk_Generator {
 			$random .= $characters[ wp_rand( 0, strlen( $characters ) - 1 ) ];
 		}
 
-		return $prefix . $random;
+		return $this->sanitize_code( $prefix . $random );
 	}
 
 	public function get_existing_codes( $form_id ) {
@@ -216,14 +206,19 @@ class GFBCU_Bulk_Generator {
 	}
 
 	public function insert_coupon( $code, $args ) {
+		$amount = $this->format_amount( $args['amount'], $args['type'] );
+		$usage_limit = $args['unlimited'] ? '' : (string) (int) $args['usage_limit'];
 		$meta = array(
-			'couponCode'   => $code,
-			'couponAmount' => $args['amount'],
-			'couponType'   => $args['type'],
-			'usageLimit'   => $args['unlimited'] ? 0 : (int) $args['usage_limit'],
-			'startDate'    => '',
-			'endDate'      => $args['expiration'],
-			'stackable'    => $args['is_stackable'] ? 1 : 0,
+			'gravityForm'      => (string) $args['form_id'],
+			'couponName'       => $code,
+			'couponCode'       => $code,
+			'couponAmountType' => $args['type'],
+			'couponAmount'     => $amount,
+			'startDate'        => '',
+			'endDate'          => $args['expiration'],
+			'usageLimit'       => $usage_limit,
+			'isStackable'      => $args['is_stackable'] ? '1' : '0',
+			'usageCount'       => '',
 		);
 
 		if ( function_exists( 'gf_coupons' ) ) {
@@ -247,7 +242,7 @@ class GFBCU_Bulk_Generator {
 				'form_id'     => (int) $args['form_id'],
 				'is_active'   => 1,
 				'addon_slug'  => $slug,
-				'meta'        => wp_json_encode( $meta ),
+				'meta'        => wp_json_encode( $meta, JSON_UNESCAPED_UNICODE ),
 				'date_created'=> current_time( 'mysql', true ),
 			),
 			array( '%d', '%d', '%s', '%s', '%s' )
@@ -339,11 +334,13 @@ class GFBCU_Bulk_Generator {
 				'id'          => (int) $row['id'],
 				'form_id'     => (int) $row['form_id'],
 				'is_active'   => (int) $row['is_active'],
+				'name'        => isset( $meta['couponName'] ) ? $meta['couponName'] : '',
 				'code'        => $meta['couponCode'],
-				'type'        => isset( $meta['couponType'] ) ? $meta['couponType'] : '',
+				'type'        => isset( $meta['couponAmountType'] ) ? $meta['couponAmountType'] : '',
 				'amount'      => isset( $meta['couponAmount'] ) ? $meta['couponAmount'] : '',
-				'usage_limit' => isset( $meta['usageLimit'] ) ? (int) $meta['usageLimit'] : 0,
-				'usage_count' => isset( $meta['usageCount'] ) ? (int) $meta['usageCount'] : null,
+				'usage_limit' => isset( $meta['usageLimit'] ) ? $meta['usageLimit'] : '',
+				'usage_count' => isset( $meta['usageCount'] ) && '' !== $meta['usageCount'] ? (int) $meta['usageCount'] : null,
+				'is_stackable'=> isset( $meta['isStackable'] ) ? $meta['isStackable'] : '0',
 				'expiration'  => isset( $meta['endDate'] ) ? $meta['endDate'] : '',
 				'created_at'  => $row['date_created'],
 			);
@@ -473,5 +470,19 @@ class GFBCU_Bulk_Generator {
 		}
 
 		return true;
+	}
+
+	private function sanitize_code( $code ) {
+		$upper = strtoupper( $code );
+		return preg_replace( '/[^A-Z0-9]/', '', $upper );
+	}
+
+	private function format_amount( $amount, $type ) {
+		$formatted = number_format( (float) $amount, 2, ',', '' );
+		if ( 'percentage' === $type ) {
+			return $formatted . '%';
+		}
+
+		return $formatted . ' €';
 	}
 }

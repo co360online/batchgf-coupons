@@ -26,12 +26,14 @@ class GFBCU_Coupons_List_Table extends WP_List_Table {
 	public function get_columns() {
 		return array(
 			'cb'         => '<input type="checkbox" />',
+			'name'       => __( 'Nombre', GFBCU_TEXT_DOMAIN ),
 			'code'       => __( 'Código', GFBCU_TEXT_DOMAIN ),
 			'form'       => __( 'Formulario', GFBCU_TEXT_DOMAIN ),
 			'type'       => __( 'Tipo', GFBCU_TEXT_DOMAIN ),
 			'amount'     => __( 'Valor', GFBCU_TEXT_DOMAIN ),
 			'usage_limit'=> __( 'Límite', GFBCU_TEXT_DOMAIN ),
 			'uses'       => __( 'Usos', GFBCU_TEXT_DOMAIN ),
+			'stackable'  => __( 'Combinable', GFBCU_TEXT_DOMAIN ),
 			'status'     => __( 'Estado', GFBCU_TEXT_DOMAIN ),
 			'expiration' => __( 'Expiración', GFBCU_TEXT_DOMAIN ),
 			'created_at' => __( 'Creación', GFBCU_TEXT_DOMAIN ),
@@ -69,6 +71,10 @@ class GFBCU_Coupons_List_Table extends WP_List_Table {
 		return sprintf( '%1$s %2$s', esc_html( $item['code'] ), $this->row_actions( $actions ) );
 	}
 
+	public function column_name( $item ) {
+		return empty( $item['name'] ) ? '—' : esc_html( $item['name'] );
+	}
+
 	public function column_form( $item ) {
 		$title = $this->generator->get_form_title( $item['form_id'] );
 		return esc_html( $item['form_id'] . ' - ' . $title );
@@ -84,7 +90,7 @@ class GFBCU_Coupons_List_Table extends WP_List_Table {
 	}
 
 	public function column_usage_limit( $item ) {
-		return (int) $item['usage_limit'] === 0 ? esc_html__( 'Ilimitado', GFBCU_TEXT_DOMAIN ) : esc_html( $item['usage_limit'] );
+		return empty( $item['usage_limit'] ) || (int) $item['usage_limit'] === 0 ? esc_html__( 'Ilimitado', GFBCU_TEXT_DOMAIN ) : esc_html( $item['usage_limit'] );
 	}
 
 	public function column_uses( $item ) {
@@ -98,6 +104,10 @@ class GFBCU_Coupons_List_Table extends WP_List_Table {
 
 	public function column_status( $item ) {
 		return esc_html( $this->generator->get_coupon_status( $item ) );
+	}
+
+	public function column_stackable( $item ) {
+		return ( isset( $item['is_stackable'] ) && '1' === $item['is_stackable'] ) ? esc_html__( 'Sí', GFBCU_TEXT_DOMAIN ) : esc_html__( 'No', GFBCU_TEXT_DOMAIN );
 	}
 
 	public function column_expiration( $item ) {
