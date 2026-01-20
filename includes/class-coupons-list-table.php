@@ -146,6 +146,21 @@ class GFBCU_Coupons_List_Table extends WP_List_Table {
 
 		$items = $result['items'];
 		$total = $result['total'];
+		$max_pages = max( 1, (int) ceil( $total / $per_page ) );
+		if ( $current_page > $max_pages ) {
+			$current_page = 1;
+			$result = $this->generator->query_coupons(
+				array(
+					'form_id'  => $filters['form_id'],
+					'search'   => $filters['search'],
+					'per_page' => $per_page,
+					'paged'    => $current_page,
+					'status'   => $filters['status'],
+				)
+			);
+			$items = $result['items'];
+			$total = $result['total'];
+		}
 
 		$codes = wp_list_pluck( $items, 'code' );
 		$campaign_map = $this->generator->get_campaign_map( $codes, $filters['form_id'] );

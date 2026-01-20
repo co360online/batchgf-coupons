@@ -249,6 +249,7 @@ class GFBCU_Admin_Pages {
 			<h1><?php esc_html_e( 'Cupones', GFBCU_TEXT_DOMAIN ); ?></h1>
 			<form method="get">
 				<input type="hidden" name="page" value="gfbcu-coupons">
+				<input type="hidden" name="paged" value="1">
 				<?php $list_table->search_box( __( 'Buscar', GFBCU_TEXT_DOMAIN ), 'gfbcu-search' ); ?>
 				<?php $list_table->display(); ?>
 			</form>
