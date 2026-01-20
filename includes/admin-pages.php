@@ -444,10 +444,17 @@ class GFBCU_Admin_Pages {
 			$increment_start = 1;
 		}
 
-		$normalized_prefix = strtoupper( preg_replace( '/[^A-Z0-9]/', '', $prefix ) );
+		$prefix_data = gfbcu_normalize_coupon_prefix( $prefix );
+		if ( $prefix_data['changed'] && '' === $prefix_data['normalized'] ) {
+			return new WP_Error( 'gfbcu_invalid_prefix', __( 'El prefijo no contiene caracteres válidos (solo A-Z y 0-9).', GFBCU_TEXT_DOMAIN ) );
+		}
+
 		$prefix_notice = '';
-		if ( $prefix && $normalized_prefix !== strtoupper( $prefix ) ) {
-			$prefix_notice = __( 'El prefijo ha sido adaptado para cumplir las normas de Gravity Forms Coupons.', GFBCU_TEXT_DOMAIN );
+		if ( $prefix_data['changed'] ) {
+			$prefix_notice = sprintf(
+				__( 'El prefijo ha sido normalizado a %s', GFBCU_TEXT_DOMAIN ),
+				$prefix_data['normalized']
+			);
 		}
 
 		return array(
@@ -456,7 +463,7 @@ class GFBCU_Admin_Pages {
 			'amount'          => $amount,
 			'count'           => $count,
 			'count_total'     => $count,
-			'prefix'          => $normalized_prefix,
+			'prefix'          => $prefix_data['normalized'],
 			'length'          => $length,
 			'usage_limit'     => $usage_limit,
 			'unlimited'       => $unlimited,

@@ -72,7 +72,23 @@ class GFBCU_Coupons_List_Table extends WP_List_Table {
 	}
 
 	public function column_name( $item ) {
-		return empty( $item['name'] ) ? '—' : esc_html( $item['name'] );
+		$name = empty( $item['name'] ) ? '—' : esc_html( $item['name'] );
+		$actions = array();
+
+		if ( current_user_can( 'manage_options' ) && ! empty( $item['form_id'] ) ) {
+			$edit_url = add_query_arg(
+				array(
+					'page'    => 'gf_edit_forms',
+					'view'    => 'settings',
+					'subview' => 'coupons',
+					'id'      => (int) $item['form_id'],
+				),
+				admin_url( 'admin.php' )
+			);
+			$actions['edit_gf'] = sprintf( '<a href="%s">%s</a>', esc_url( $edit_url ), esc_html__( 'Editar en Gravity Forms', GFBCU_TEXT_DOMAIN ) );
+		}
+
+		return sprintf( '%1$s %2$s', $name, $this->row_actions( $actions ) );
 	}
 
 	public function column_form( $item ) {

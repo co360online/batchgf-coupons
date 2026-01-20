@@ -79,3 +79,20 @@ function gfbcu_get_coupon_types() {
 function gfbcu_admin_url( $page ) {
 	return admin_url( 'admin.php?page=' . $page );
 }
+
+/**
+ * Normalize coupon prefix to A-Z and 0-9.
+ *
+ * @param string $prefix
+ * @return array{original:string,normalized:string,changed:bool}
+ */
+function gfbcu_normalize_coupon_prefix( $prefix ) {
+	$original   = sanitize_text_field( $prefix );
+	$normalized = strtoupper( preg_replace( '/[^A-Z0-9]/', '', $original ) );
+
+	return array(
+		'original'   => $original,
+		'normalized' => $normalized,
+		'changed'    => $original !== $normalized,
+	);
+}

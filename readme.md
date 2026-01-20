@@ -150,6 +150,12 @@ Ahora genera el código del plugin.
 4. Si generas más de 500 cupones, el plugin usa generación por lotes (AJAX).
 5. Exporta el CSV al final de la generación o desde **GF Bulk Coupons > Cupones**.
 
+## Edición rápida en Gravity Forms
+En la tabla de **Cupones** aparece la acción “Editar en Gravity Forms” para abrir la pantalla nativa de cupones del formulario correspondiente.
+
+## Normalización automática del prefijo
+Si el prefijo contiene caracteres no permitidos, el plugin lo normaliza a A-Z/0-9 en mayúsculas y muestra un aviso con el valor resultante. Si tras normalizar queda vacío, se detiene la generación con un error.
+
 ## Dónde se guardan los cupones
 El plugin usa los **feeds** del Add-On oficial de Gravity Forms Coupons en la tabla `{$wpdb->prefix}gf_addon_feed` con `addon_slug` del Coupons Add-On. Para la etiqueta/campaña se crea una tabla auxiliar `{$wpdb->prefix}gfbcu_coupon_meta` con el mapeo código → campaña.
 
