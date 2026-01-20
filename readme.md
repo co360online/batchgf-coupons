@@ -135,3 +135,34 @@ IMPORTANTE
 - Evita romper la instalación si la estructura del Add-On cambia: añade comprobaciones defensivas.
 
 Ahora genera el código del plugin.
+
+# GF Bulk Coupons - Instrucciones y notas
+
+## Instalación
+1. Copia la carpeta del plugin en `wp-content/plugins/gf-bulk-coupons`.
+2. Activa **GF Bulk Coupons** desde el panel de plugins.
+3. Asegúrate de tener **Gravity Forms** y el **Add-On Gravity Forms Coupons** activos.
+
+## Uso rápido
+1. Ve a **GF Bulk Coupons > Generar**.
+2. Selecciona el formulario y configura el tipo/valor de descuento.
+3. Define cantidad, prefijo, longitud y expiración.
+4. Si generas más de 500 cupones, el plugin usa generación por lotes (AJAX).
+5. Exporta el CSV al final de la generación o desde **GF Bulk Coupons > Cupones**.
+
+## Edición rápida en Gravity Forms
+En la tabla de **Cupones** aparece la acción “Editar en Gravity Forms” para abrir la pantalla nativa de cupones del formulario correspondiente.
+
+## Normalización automática del prefijo
+Si el prefijo contiene caracteres no permitidos, el plugin lo normaliza a A-Z/0-9 en mayúsculas y muestra un aviso con el valor resultante. Si tras normalizar queda vacío, se detiene la generación con un error.
+
+## Dónde se guardan los cupones
+El plugin usa los **feeds** del Add-On oficial de Gravity Forms Coupons en la tabla `{$wpdb->prefix}gf_addon_feed` con `addon_slug` del Coupons Add-On. Para la etiqueta/campaña se crea una tabla auxiliar `{$wpdb->prefix}gfbcu_coupon_meta` con el mapeo código → campaña.
+
+## Cómo se calcula el “uso” de cupones
+Si el meta JSON del feed incluye un conteo (`usageCount` o similar), se muestra directamente. Si no existe, se calcula bajo demanda consultando las entradas del formulario y buscando valores en campos tipo **Coupon**. El resultado se cachea en transients por 10 minutos para evitar impacto en rendimiento.
+
+## Compatibilidad y rendimiento
+- Compatible con PHP 7.4+ y WordPress moderno.
+- Se evita insertar directamente en BD salvo que no exista API pública; actualmente se usa inserción en tabla del Add-On con chequeos defensivos de columnas.
+- La generación por lotes se activa automáticamente para cantidades grandes (chunk de 200).
