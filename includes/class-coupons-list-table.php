@@ -129,6 +129,11 @@ class GFBCU_Coupons_List_Table extends WP_List_Table {
 
 	public function prepare_items() {
 		$this->process_bulk_action();
+		$columns  = $this->get_columns();
+		$hidden   = array();
+		$sortable = $this->get_sortable_columns();
+		$this->_column_headers = array( $columns, $hidden, $sortable );
+
 		$per_page = (int) $this->get_items_per_page( 'gfbcu_coupons_per_page', 20 );
 		if ( $per_page < 1 ) {
 			$per_page = 20;
@@ -146,7 +151,7 @@ class GFBCU_Coupons_List_Table extends WP_List_Table {
 			)
 		);
 
-		$all_items = $result['items'];
+		$all_items = array_values( $result['items'] );
 		$total = $result['total'];
 		$max_pages = max( 1, (int) ceil( $total / $per_page ) );
 		if ( $current_page > $max_pages ) {
@@ -154,6 +159,11 @@ class GFBCU_Coupons_List_Table extends WP_List_Table {
 			$offset = 0;
 		}
 		$items = array_slice( $all_items, $offset, $per_page );
+		if ( $total > 0 && empty( $items ) ) {
+			$current_page = 1;
+			$offset = 0;
+			$items = array_slice( $all_items, 0, $per_page );
+		}
 
 		$codes = wp_list_pluck( $items, 'code' );
 		$campaign_map = $this->generator->get_campaign_map( $codes, $filters['form_id'] );
@@ -168,22 +178,9 @@ class GFBCU_Coupons_List_Table extends WP_List_Table {
 			array(
 				'total_items' => $total,
 				'per_page'    => $per_page,
-				'total_pages' => $max_pages,
+				'total_pages' => (int) ceil( $total / $per_page ),
 			)
 		);
-
-		if ( $total > 0 && 1 === $current_page && 0 === count( $this->items ) ) {
-			$first_id = isset( $all_items[0]['id'] ) ? $all_items[0]['id'] : 'n/a';
-			error_log(
-				sprintf(
-					'[GF Bulk Coupons] Empty list debug: per_page=%d current_page=%d offset=%d first_id=%s',
-					$per_page,
-					$current_page,
-					$offset,
-					$first_id
-				)
-			);
-		}
 	}
 
 	public function get_filters() {
