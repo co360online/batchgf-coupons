@@ -253,9 +253,8 @@ class GFBCU_Bulk_Generator {
 				'is_active'   => 1,
 				'addon_slug'  => $slug,
 				'meta'        => wp_json_encode( $meta, JSON_UNESCAPED_UNICODE ),
-				'date_created'=> current_time( 'mysql', true ),
 			),
-			array( '%d', '%d', '%s', '%s', '%s' )
+			array( '%d', '%d', '%s', '%s' )
 		);
 
 		if ( false === $inserted ) {
@@ -321,7 +320,7 @@ class GFBCU_Bulk_Generator {
 
 		if ( class_exists( 'GFAPI' ) ) {
 			$form_id = ! empty( $args['form_id'] ) ? (int) $args['form_id'] : null;
-			$feeds = GFAPI::get_feeds( $form_id, $slug );
+			$feeds = GFAPI::get_feeds( null, $form_id, $slug, true );
 			foreach ( (array) $feeds as $feed ) {
 				$items[] = $this->parse_feed_to_item( $feed );
 			}
@@ -338,7 +337,7 @@ class GFBCU_Bulk_Generator {
 			}
 
 			$where_sql = 'WHERE ' . implode( ' AND ', $where );
-			$query = "SELECT id, form_id, is_active, meta FROM {$table} {$where_sql} ORDER BY id DESC";
+			$query = "SELECT id, form_id, is_active, feed_order, meta, addon_slug, event_type FROM {$table} {$where_sql} ORDER BY id DESC";
 			$query = $wpdb->prepare( $query, $params );
 			$rows = $wpdb->get_results( $query, ARRAY_A );
 			foreach ( $rows as $row ) {
