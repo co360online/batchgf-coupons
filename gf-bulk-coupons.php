@@ -3,7 +3,7 @@
  * Plugin Name: GF Bulk Coupons
  * Description: Genera cupones en masa para Gravity Forms Coupons Add-On y permite gestionarlos desde el admin.
  * Version: 1.0.0
- * Author: OpenAI
+ * Author: Comunicación Online 360, SLU
  * Text Domain: gf-bulk-coupons
  * Domain Path: /languages
  */

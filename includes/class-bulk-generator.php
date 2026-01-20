@@ -314,12 +314,10 @@ class GFBCU_Bulk_Generator {
 	}
 
 	public function query_coupons( $args ) {
-		$status = isset( $args['status'] ) ? sanitize_key( $args['status'] ) : '';
-		$items = array();
-		$slug  = 'gravityformscoupons';
-
 		global $wpdb;
 		$table = $this->get_feed_table();
+		$slug  = 'gravityformscoupons';
+		$status = isset( $args['status'] ) ? sanitize_key( $args['status'] ) : '';
 
 		$where = array( 'addon_slug = %s' );
 		$params = array( $slug );
@@ -330,9 +328,12 @@ class GFBCU_Bulk_Generator {
 		}
 
 		$where_sql = 'WHERE ' . implode( ' AND ', $where );
-		$query = "SELECT id, form_id, is_active, feed_order, meta, addon_slug, event_type FROM {$table} {$where_sql} ORDER BY id DESC";
+
+		$query = "SELECT id, form_id, is_active, meta FROM {$table} {$where_sql} ORDER BY id DESC";
 		$query = $wpdb->prepare( $query, $params );
 		$rows = $wpdb->get_results( $query, ARRAY_A );
+
+		$items = array();
 		foreach ( $rows as $row ) {
 			$items[] = $this->parse_feed_to_item( $row );
 		}
@@ -352,12 +353,6 @@ class GFBCU_Bulk_Generator {
 		}
 
 		$total = count( $filtered );
-
-		if ( ! empty( $args['per_page'] ) ) {
-			$offset = ( max( 1, (int) $args['paged'] ) - 1 ) * (int) $args['per_page'];
-			$filtered = array_slice( $filtered, $offset, (int) $args['per_page'] );
-		}
-
 		return array( 'items' => $filtered, 'total' => $total );
 	}
 
@@ -413,7 +408,8 @@ class GFBCU_Bulk_Generator {
 	public function get_coupon_status( $item ) {
 		$expiration = isset( $item['expiration'] ) ? $item['expiration'] : '';
 		$start_date = isset( $item['start_date'] ) ? $item['start_date'] : '';
-		$usage_limit = isset( $item['usage_limit'] ) && '' !== $item['usage_limit'] ? (int) $item['usage_limit'] : 0;
+		$usage_limit_raw = isset( $item['usage_limit'] ) ? $item['usage_limit'] : '';
+		$usage_limit = '' !== $usage_limit_raw ? (int) $usage_limit_raw : 0;
 		$usage_count = isset( $item['usage_count'] ) ? (int) $item['usage_count'] : null;
 
 		if ( $start_date ) {
@@ -430,7 +426,7 @@ class GFBCU_Bulk_Generator {
 			}
 		}
 
-		if ( $usage_limit > 0 && null !== $usage_count && $usage_count >= $usage_limit ) {
+		if ( '' !== $usage_limit_raw && null !== $usage_count && $usage_count >= $usage_limit ) {
 			return __( 'Agotado', GFBCU_TEXT_DOMAIN );
 		}
 
@@ -444,7 +440,8 @@ class GFBCU_Bulk_Generator {
 	private function matches_status( $status, $item ) {
 		$expiration = isset( $item['expiration'] ) ? $item['expiration'] : '';
 		$start_date = isset( $item['start_date'] ) ? $item['start_date'] : '';
-		$usage_limit = isset( $item['usage_limit'] ) && '' !== $item['usage_limit'] ? (int) $item['usage_limit'] : 0;
+		$usage_limit_raw = isset( $item['usage_limit'] ) ? $item['usage_limit'] : '';
+		$usage_limit = '' !== $usage_limit_raw ? (int) $usage_limit_raw : 0;
 		$usage_count = isset( $item['usage_count'] ) ? (int) $item['usage_count'] : null;
 
 		if ( 'expired' === $status ) {
@@ -460,7 +457,7 @@ class GFBCU_Bulk_Generator {
 		}
 
 		if ( 'exhausted' === $status ) {
-			return $usage_limit > 0 && null !== $usage_count && $usage_count >= $usage_limit;
+			return '' !== $usage_limit_raw && null !== $usage_count && $usage_count >= $usage_limit;
 		}
 
 		if ( 'active' === $status ) {
@@ -474,7 +471,7 @@ class GFBCU_Bulk_Generator {
 				$timestamp = strtotime( $expiration );
 				$expired = $timestamp && $timestamp < current_time( 'timestamp' );
 			}
-			$exhausted = $usage_limit > 0 && null !== $usage_count && $usage_count >= $usage_limit;
+			$exhausted = '' !== $usage_limit_raw && null !== $usage_count && $usage_count >= $usage_limit;
 			return ! $expired && ! $exhausted && ! $not_started;
 		}
 
@@ -504,27 +501,38 @@ class GFBCU_Bulk_Generator {
 		$meta = is_array( $meta ) ? $meta : array();
 		$code = isset( $meta['couponCode'] ) ? $meta['couponCode'] : '';
 		$name = isset( $meta['couponName'] ) ? $meta['couponName'] : '';
+		$meta_incomplete = false;
 
-		if ( ! $name && ! $code ) {
-			$name = __( 'Meta incompleto', GFBCU_TEXT_DOMAIN );
+		if ( ! $name || ! $code ) {
+			$meta_incomplete = true;
 		}
 
 		$form_id = isset( $feed['form_id'] ) ? (int) $feed['form_id'] : 0;
 
+		$display_name = $name ? $name : '—';
+		$display_code = $code ? $code : '—';
+
+		if ( $meta_incomplete ) {
+			$display_name = __( 'Meta incompleto', GFBCU_TEXT_DOMAIN );
+		}
+
 		return array(
+			'feed_id'      => isset( $feed['id'] ) ? (int) $feed['id'] : 0,
 			'id'           => isset( $feed['id'] ) ? (int) $feed['id'] : 0,
 			'form_id'      => $form_id,
 			'is_active'    => isset( $feed['is_active'] ) ? (int) $feed['is_active'] : 0,
-			'name'         => $name,
-			'code'         => $code ? $code : '—',
+			'name'         => $display_name,
+			'code'         => $display_code,
 			'type'         => isset( $meta['couponAmountType'] ) ? $meta['couponAmountType'] : '—',
 			'amount'       => isset( $meta['couponAmount'] ) ? $meta['couponAmount'] : '—',
 			'usage_limit'  => isset( $meta['usageLimit'] ) ? $meta['usageLimit'] : '',
 			'usage_count'  => isset( $meta['usageCount'] ) && '' !== $meta['usageCount'] ? (int) $meta['usageCount'] : 0,
 			'is_stackable' => isset( $meta['isStackable'] ) ? $meta['isStackable'] : '0',
 			'start_date'   => isset( $meta['startDate'] ) ? $meta['startDate'] : '',
+			'end_date'     => isset( $meta['endDate'] ) ? $meta['endDate'] : '',
 			'expiration'   => isset( $meta['endDate'] ) ? $meta['endDate'] : '',
 			'created_at'   => isset( $feed['date_created'] ) ? $feed['date_created'] : '',
+			'meta_incomplete' => $meta_incomplete,
 		);
 	}
 }
