@@ -33,6 +33,7 @@ class GFBCU_Coupons_List_Table extends WP_List_Table {
 			'amount'     => __( 'Valor', GFBCU_TEXT_DOMAIN ),
 			'usage_limit'=> __( 'Límite', GFBCU_TEXT_DOMAIN ),
 			'uses'       => __( 'Usos', GFBCU_TEXT_DOMAIN ),
+			'email'      => __( 'Email', GFBCU_TEXT_DOMAIN ),
 			'stackable'  => __( 'Combinable', GFBCU_TEXT_DOMAIN ),
 			'dates'      => __( 'Vigencia', GFBCU_TEXT_DOMAIN ),
 			'status'     => __( 'Estado', GFBCU_TEXT_DOMAIN ),
@@ -121,6 +122,49 @@ class GFBCU_Coupons_List_Table extends WP_List_Table {
 		return null === $count ? '—' : esc_html( $count );
 	}
 
+	public function column_email( $item ) {
+		$usage_limit = isset( $item['usage_limit'] ) ? $item['usage_limit'] : '';
+		$usage_limit_int = '' !== $usage_limit ? (int) $usage_limit : 0;
+		$redemption_count = isset( $item['redemption_count'] ) ? (int) $item['redemption_count'] : 0;
+
+		if ( '' !== $usage_limit && 1 === $usage_limit_int ) {
+			$email = isset( $item['redemption_email'] ) ? $item['redemption_email'] : '';
+			$entry_id = isset( $item['redemption_entry_id'] ) ? (int) $item['redemption_entry_id'] : 0;
+			if ( $entry_id ) {
+				$entry_url = add_query_arg(
+					array(
+						'page' => 'gf_entries',
+						'view' => 'entry',
+						'id'   => (int) $item['form_id'],
+						'lid'  => $entry_id,
+					),
+					admin_url( 'admin.php' )
+				);
+				return sprintf(
+					'%1$s <a href="%2$s">%3$s</a>',
+					$email ? esc_html( $email ) : '—',
+					esc_url( $entry_url ),
+					esc_html__( 'Ver entry', GFBCU_TEXT_DOMAIN )
+				);
+			}
+
+			return $email ? esc_html( $email ) : '—';
+		}
+
+		if ( '' !== $usage_limit && $usage_limit_int > 1 ) {
+			$uses_url = $this->get_uses_url( $item );
+			return sprintf(
+				'(%1$s %2$s) <a href="%3$s">%4$s</a>',
+				$redemption_count,
+				esc_html__( 'usos', GFBCU_TEXT_DOMAIN ),
+				esc_url( $uses_url ),
+				esc_html__( 'Ver usos', GFBCU_TEXT_DOMAIN )
+			);
+		}
+
+		return $redemption_count ? esc_html( $redemption_count ) : '—';
+	}
+
 	public function column_status( $item ) {
 		return esc_html( $this->generator->get_coupon_status( $item ) );
 	}
@@ -183,9 +227,19 @@ class GFBCU_Coupons_List_Table extends WP_List_Table {
 
 		$codes = wp_list_pluck( $items, 'code' );
 		$campaign_map = $this->generator->get_campaign_map( $codes, $filters['form_id'] );
+		$redemption_summary = GFBCU_Redemptions::get_instance()->get_redemption_summaries( $filters['form_id'], $codes );
 
 		foreach ( $items as &$item ) {
 			$item['campaign'] = isset( $campaign_map[ $item['code'] ] ) ? $campaign_map[ $item['code'] ] : '';
+			if ( isset( $redemption_summary[ $item['code'] ] ) ) {
+				$item['redemption_count'] = $redemption_summary[ $item['code'] ]['count'];
+				$item['redemption_email'] = isset( $redemption_summary[ $item['code'] ]['email'] ) ? $redemption_summary[ $item['code'] ]['email'] : '';
+				$item['redemption_entry_id'] = isset( $redemption_summary[ $item['code'] ]['entry_id'] ) ? $redemption_summary[ $item['code'] ]['entry_id'] : 0;
+			} else {
+				$item['redemption_count'] = 0;
+				$item['redemption_email'] = '';
+				$item['redemption_entry_id'] = 0;
+			}
 		}
 
 		$this->items = $items;
@@ -196,6 +250,22 @@ class GFBCU_Coupons_List_Table extends WP_List_Table {
 				'per_page'    => $per_page,
 				'total_pages' => (int) ceil( $total / $per_page ),
 			)
+		);
+	}
+
+	private function get_uses_url( $item ) {
+		$form_id = (int) $item['form_id'];
+		$code = isset( $item['code'] ) ? $item['code'] : '';
+		$nonce = wp_create_nonce( 'gfbcu_view_uses_' . $code . '_' . $form_id );
+
+		return add_query_arg(
+			array(
+				'page'     => 'gfbcu-coupon-uses',
+				'form_id'  => $form_id,
+				'code'     => $code,
+				'_wpnonce' => $nonce,
+			),
+			admin_url( 'admin.php' )
 		);
 	}
 

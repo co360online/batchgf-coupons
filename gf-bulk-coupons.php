@@ -24,8 +24,9 @@ require_once GFBCU_PATH . 'includes/class-bulk-generator.php';
 require_once GFBCU_PATH . 'includes/admin-pages.php';
 require_once GFBCU_PATH . 'includes/class-coupons-list-table.php';
 require_once GFBCU_PATH . 'includes/export.php';
+require_once GFBCU_PATH . 'includes/class-redemptions.php';
 
-register_activation_hook( __FILE__, array( 'GFBCU_Bulk_Generator', 'activate' ) );
+register_activation_hook( __FILE__, 'gfbcu_activate' );
 
 add_action( 'plugins_loaded', 'gfbcu_init' );
 
@@ -38,6 +39,7 @@ function gfbcu_init() {
 	GFBCU_Bulk_Generator::get_instance();
 	GFBCU_Admin_Pages::get_instance();
 	GFBCU_Export::get_instance();
+	GFBCU_Redemptions::get_instance();
 }
 
 /**
@@ -78,6 +80,14 @@ function gfbcu_get_coupon_types() {
  */
 function gfbcu_admin_url( $page ) {
 	return admin_url( 'admin.php?page=' . $page );
+}
+
+/**
+ * Run activation tasks.
+ */
+function gfbcu_activate() {
+	GFBCU_Bulk_Generator::activate();
+	GFBCU_Redemptions::activate();
 }
 
 /**

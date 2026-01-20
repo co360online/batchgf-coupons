@@ -50,6 +50,15 @@ class GFBCU_Admin_Pages {
 			'gfbcu-coupons',
 			array( $this, 'render_coupons_page' )
 		);
+
+		add_submenu_page(
+			null,
+			__( 'Usos de cupón', GFBCU_TEXT_DOMAIN ),
+			__( 'Usos de cupón', GFBCU_TEXT_DOMAIN ),
+			'manage_options',
+			'gfbcu-coupon-uses',
+			array( $this, 'render_coupon_uses_page' )
+		);
 	}
 
 	public function enqueue_assets( $hook ) {
@@ -253,6 +262,66 @@ class GFBCU_Admin_Pages {
 				<?php $list_table->search_box( __( 'Buscar', GFBCU_TEXT_DOMAIN ), 'gfbcu-search' ); ?>
 				<?php $list_table->display(); ?>
 			</form>
+		</div>
+		<?php
+	}
+
+	public function render_coupon_uses_page() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
+		$form_id = isset( $_GET['form_id'] ) ? (int) $_GET['form_id'] : 0;
+		$code = isset( $_GET['code'] ) ? sanitize_text_field( wp_unslash( $_GET['code'] ) ) : '';
+		$nonce_action = 'gfbcu_view_uses_' . $code . '_' . $form_id;
+		if ( ! isset( $_GET['_wpnonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ), $nonce_action ) ) {
+			wp_die( esc_html__( 'Nonce inválido.', GFBCU_TEXT_DOMAIN ) );
+		}
+
+		$redemptions = GFBCU_Redemptions::get_instance()->get_redemptions( $form_id, $code );
+		?>
+		<div class="wrap">
+			<h1><?php esc_html_e( 'Usos del cupón', GFBCU_TEXT_DOMAIN ); ?></h1>
+			<p><?php echo esc_html( sprintf( __( 'Cupón: %s', GFBCU_TEXT_DOMAIN ), $code ) ); ?></p>
+			<table class="widefat striped">
+				<thead>
+					<tr>
+						<th><?php esc_html_e( 'Entry ID', GFBCU_TEXT_DOMAIN ); ?></th>
+						<th><?php esc_html_e( 'Email', GFBCU_TEXT_DOMAIN ); ?></th>
+						<th><?php esc_html_e( 'User ID', GFBCU_TEXT_DOMAIN ); ?></th>
+						<th><?php esc_html_e( 'Fecha', GFBCU_TEXT_DOMAIN ); ?></th>
+						<th><?php esc_html_e( 'Entry', GFBCU_TEXT_DOMAIN ); ?></th>
+					</tr>
+				</thead>
+				<tbody>
+					<?php if ( empty( $redemptions ) ) : ?>
+						<tr>
+							<td colspan="5"><?php esc_html_e( 'No hay usos registrados.', GFBCU_TEXT_DOMAIN ); ?></td>
+						</tr>
+					<?php else : ?>
+						<?php foreach ( $redemptions as $redemption ) : ?>
+							<?php
+							$entry_url = add_query_arg(
+								array(
+									'page' => 'gf_entries',
+									'view' => 'entry',
+									'id'   => $form_id,
+									'lid'  => (int) $redemption['entry_id'],
+								),
+								admin_url( 'admin.php' )
+							);
+							?>
+							<tr>
+								<td><?php echo esc_html( $redemption['entry_id'] ); ?></td>
+								<td><?php echo $redemption['email'] ? esc_html( $redemption['email'] ) : '—'; ?></td>
+								<td><?php echo $redemption['user_id'] ? esc_html( $redemption['user_id'] ) : '—'; ?></td>
+								<td><?php echo esc_html( $redemption['created_at'] ); ?></td>
+								<td><a href="<?php echo esc_url( $entry_url ); ?>"><?php esc_html_e( 'Ver entry', GFBCU_TEXT_DOMAIN ); ?></a></td>
+							</tr>
+						<?php endforeach; ?>
+					<?php endif; ?>
+				</tbody>
+			</table>
 		</div>
 		<?php
 	}
