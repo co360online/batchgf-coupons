@@ -316,33 +316,25 @@ class GFBCU_Bulk_Generator {
 	public function query_coupons( $args ) {
 		$status = isset( $args['status'] ) ? sanitize_key( $args['status'] ) : '';
 		$items = array();
-		$slug  = $this->get_addon_slug();
+		$slug  = 'gravityformscoupons';
 
-		if ( class_exists( 'GFAPI' ) ) {
-			$form_id = ! empty( $args['form_id'] ) ? (int) $args['form_id'] : null;
-			$feeds = GFAPI::get_feeds( null, $form_id, $slug, true );
-			foreach ( (array) $feeds as $feed ) {
-				$items[] = $this->parse_feed_to_item( $feed );
-			}
-		} else {
-			global $wpdb;
-			$table = $this->get_feed_table();
+		global $wpdb;
+		$table = $this->get_feed_table();
 
-			$where = array( 'addon_slug = %s' );
-			$params = array( $slug );
+		$where = array( 'addon_slug = %s' );
+		$params = array( $slug );
 
-			if ( ! empty( $args['form_id'] ) ) {
-				$where[] = 'form_id = %d';
-				$params[] = (int) $args['form_id'];
-			}
+		if ( ! empty( $args['form_id'] ) ) {
+			$where[] = 'form_id = %d';
+			$params[] = (int) $args['form_id'];
+		}
 
-			$where_sql = 'WHERE ' . implode( ' AND ', $where );
-			$query = "SELECT id, form_id, is_active, feed_order, meta, addon_slug, event_type FROM {$table} {$where_sql} ORDER BY id DESC";
-			$query = $wpdb->prepare( $query, $params );
-			$rows = $wpdb->get_results( $query, ARRAY_A );
-			foreach ( $rows as $row ) {
-				$items[] = $this->parse_feed_to_item( $row );
-			}
+		$where_sql = 'WHERE ' . implode( ' AND ', $where );
+		$query = "SELECT id, form_id, is_active, feed_order, meta, addon_slug, event_type FROM {$table} {$where_sql} ORDER BY id DESC";
+		$query = $wpdb->prepare( $query, $params );
+		$rows = $wpdb->get_results( $query, ARRAY_A );
+		foreach ( $rows as $row ) {
+			$items[] = $this->parse_feed_to_item( $row );
 		}
 
 		$filtered = array();
@@ -420,8 +412,16 @@ class GFBCU_Bulk_Generator {
 
 	public function get_coupon_status( $item ) {
 		$expiration = isset( $item['expiration'] ) ? $item['expiration'] : '';
+		$start_date = isset( $item['start_date'] ) ? $item['start_date'] : '';
 		$usage_limit = isset( $item['usage_limit'] ) && '' !== $item['usage_limit'] ? (int) $item['usage_limit'] : 0;
 		$usage_count = isset( $item['usage_count'] ) ? (int) $item['usage_count'] : null;
+
+		if ( $start_date ) {
+			$start_timestamp = strtotime( $start_date );
+			if ( $start_timestamp && $start_timestamp > current_time( 'timestamp' ) ) {
+				return __( 'Activo', GFBCU_TEXT_DOMAIN );
+			}
+		}
 
 		if ( $expiration ) {
 			$timestamp = strtotime( $expiration );
@@ -443,6 +443,7 @@ class GFBCU_Bulk_Generator {
 
 	private function matches_status( $status, $item ) {
 		$expiration = isset( $item['expiration'] ) ? $item['expiration'] : '';
+		$start_date = isset( $item['start_date'] ) ? $item['start_date'] : '';
 		$usage_limit = isset( $item['usage_limit'] ) && '' !== $item['usage_limit'] ? (int) $item['usage_limit'] : 0;
 		$usage_count = isset( $item['usage_count'] ) ? (int) $item['usage_count'] : null;
 
@@ -464,12 +465,17 @@ class GFBCU_Bulk_Generator {
 
 		if ( 'active' === $status ) {
 			$expired = false;
+			$not_started = false;
+			if ( $start_date ) {
+				$start_timestamp = strtotime( $start_date );
+				$not_started = $start_timestamp && $start_timestamp > current_time( 'timestamp' );
+			}
 			if ( $expiration ) {
 				$timestamp = strtotime( $expiration );
 				$expired = $timestamp && $timestamp < current_time( 'timestamp' );
 			}
 			$exhausted = $usage_limit > 0 && null !== $usage_count && $usage_count >= $usage_limit;
-			return ! $expired && ! $exhausted;
+			return ! $expired && ! $exhausted && ! $not_started;
 		}
 
 		return true;
